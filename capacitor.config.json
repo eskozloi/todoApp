@@ -1,0 +1,6 @@
+{
+  "appId": "com.bruxemburg.todo",
+  "appName": "todoApp",
+  "webDir": ".output/public",
+  "bundledWebRuntime": false
+}
