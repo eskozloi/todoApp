@@ -9,6 +9,7 @@
   "devDependencies": {
     "@capacitor/cli": "^3.5.1",
     "@pinia/nuxt": "^0.1.9",
+    "@types/uuid": "^8.3.4",
     "nuxt": "3.0.0-rc.3",
     "nuxt-windicss": "^2.3.1"
   },
@@ -16,7 +17,8 @@
     "@capacitor/android": "^3.5.1",
     "@capacitor/core": "^3.5.1",
     "firebase": "^9.8.1",
-    "pinia": "^2.0.14"
+    "pinia": "^2.0.14",
+    "uuid": "^8.3.2"
   },
   "prettier": {
     "printWidth": 120

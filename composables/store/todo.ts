@@ -1,92 +1,89 @@
-import { getFirestore, getDocs, collection } from "firebase/firestore";
+import { getFirestore, collection, onSnapshot, doc, updateDoc, deleteDoc, setDoc } from "firebase/firestore";
 import { defineStore } from "pinia";
+import { v4 as uuidV4 } from "uuid";
 
 const db = getFirestore(firebaseApp);
-//const todoSnapshot = await getDocs(collection(db, "todo"));
-let todos = [];
-(await getDocs(collection(db, "todo"))).forEach((todo) => {
-  todos.push(todo.data() as Todo);
-});
 
 export interface Todo {
-  id: number;
+  id: string;
   label: string;
   done: boolean;
-  dateCreated: Date;
-  dateUpdated: Date;
+  dateCreated: string;
+  dateUpdated: string;
 }
 
 export interface todoState {
-  todo: Todo[] | undefined[];
+  todos: Todo[] | undefined[];
 }
 
 const state = (): todoState => ({
-  todo: todos,
+  todos: [], //[{ id: 2, label: "fds", done: false, dateCreated: new Date(), dateUpdated: new Date() }]
 });
-
-/*const getTodos = async (): Promise<todoState> => {
-  const todos = await getDocs(collection(db, "todo"))
-  return todos.map((todo) => todo as Todo)
-}*/
-
-/*(
-  async () => {
-    const todo = await fetch("https://jsonplaceholder.typicode.com/todos");
-    const todoJson = await todo.json();
-    console.log(todoJson);
-  }
-)*/
 
 const getters = {
   getTodoList: (state: todoState) => () => {
-    return state.todo;
+    return state.todos;
   },
-  getTodoById: (state: todoState) => (id: number) => {
-    return state.todo.find((todo) => todo.id === id);
+  getTodoById: (state: todoState) => (id: string) => {
+    return state.todos.find((todo) => todo.id === id);
   },
   getOrderedByDateTodoList: (state: todoState) => () => {
-    return state.todo.sort((a, b) => a.dateCreated.getTime() - b.dateCreated.getTime());
+    const todoListCopy = [...state.todos];
+    return todoListCopy.sort((a, b) => new Date(b.dateCreated).getTime() - new Date(a.dateCreated).getTime());
   },
   getOrderedByStatusTodoList: (state: todoState) => () => {
-    return state.todo.sort((a, b) => (a.done ? 1 : 0) - (b.done ? 1 : 0));
+    const todoListCopy = [...state.todos];
+    return todoListCopy.sort(
+      (a, b) =>
+        (a.done ? 1 : 0) - (b.done ? 1 : 0) || new Date(b.dateCreated).getTime() - new Date(a.dateCreated).getTime()
+    );
   },
   getActiveTodoList: (state: todoState) => () => {
-    return state.todo.filter((todo) => !todo.done);
+    return state.todos.filter((todo) => !todo.done);
   },
   getDoneTodoList: (state: todoState) => () => {
-    return state.todo.filter((todo) => todo.done);
+    return state.todos.filter((todo) => todo.done);
   },
 };
 
 const actions = {
-  addTodo(label: string) {
-    const todo = {
-      id: this.todo.length + 1,
-      lable: label,
+  async addTodo(label: string) {
+    const id = uuidV4();
+    await setDoc(doc(db, "users", authStore().auth.currentUser.uid, "todoList", id), {
+      id: id,
+      label: label,
       done: false,
-      dateCreated: new Date(),
-      dateUpdated: new Date(),
-    };
-    this.todo.push(todo);
+      dateCreated: new Date().toUTCString(),
+      dateUpdated: new Date().toUTCString(),
+    });
   },
-  updateTodo(id: number, label: string) {
-    const todo = this.getTodoById(id);
-    todo.lable = label;
-    todo.dateUpdated = new Date();
+  async updateTodo(id: string, label: string) {
+    await updateDoc(doc(db, "users", authStore().auth.currentUser.uid, "todoList", id), {
+      label: label,
+      dateUpdated: new Date().toUTCString(),
+    });
   },
-  deleteTodo(id: number) {
-    const todo = this.getTodoById(id);
-    this.todo.splice(this.todo.indexOf(todo), 1);
+  async deleteTodo(id: string) {
+    await deleteDoc(doc(db, "users", authStore().auth.currentUser.uid, "todoList", id));
   },
-  changeTodoStatus(id: number) {
-    const todo = this.getTodoById(id);
-    todo.done = !todo.done;
-    //todo.dateUpdated = new Date();
+  async changeTodoStatus(id: string) {
+    await updateDoc(doc(db, "users", authStore().auth.currentUser.uid, "todoList", id), {
+      done: !this.getTodoById(id).done,
+    });
+  },
+  dbListen() {
+    onSnapshot(collection(db, "users", authStore().auth.currentUser.uid, "todoList"), (doc) => {
+      this.todos = doc.docs.map((d) => d.data()) as Todo[];
+    });
   },
 };
 
-export const todoStore = defineStore("authStore", {
+export const todoStore = defineStore("todoStore", {
   state,
   getters,
   actions,
 });
+
+//const auth = authStore();
+/*const todoListPath = ["users", authStore().auth.currentUser.uid, "todoList"] as const;
+actions.dbListen();*/

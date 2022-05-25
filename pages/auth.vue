@@ -38,12 +38,12 @@ const credentials = ref({
 });
 
 const newUser = ref(false);
+const submited = ref(false);
 
-const user = userStore();
+const auth = authStore();
 
 const checkIfUserExists = async () => {
-  user.checkIfUserExists(credentials.value.email.value).then((exist) => {
-    //console.log(exist);
+  auth.checkIfUserExists(credentials.value.email.value).then((exist) => {
     if (exist) newUser.value = false;
     else newUser.value = true;
   });
@@ -55,26 +55,26 @@ const validate = async (key) => {
     ((refKey = credentials.value[key].reference) && credentials.value[key].value === credentials.value[refKey].value) ||
     (!refKey && credentials.value[key].value.match(credentials.value[key].regex))
   ) {
-    //console.log("valid");
     credentials.value[key].valid = true;
     credentials.value[key].border = validBorder;
     if (credentials.value[key].aditionalCheck) credentials.value[key].aditionalCheck();
   } else {
-    //console.log(credentials.value[key].value);
     credentials.value[key].valid = false;
     credentials.value[key].border = invalidBorder;
   }
 };
 
 const authenticateUser = async () => {
-  const invalidData = Object.values(credentials.value).find((item) => {
+  const invalidData = Object.entries(credentials.value).find(([key, item]) => {
+    if (key === "passwordConfirmation" && !newUser.value) return false;
+    validate(key);
     return !item.valid;
   });
   if (!invalidData) {
+    submited.value = true;
     if (newUser.value)
-      await user.register({ email: credentials.value.email.value, password: credentials.value.password.value });
-    else await user.login({ email: credentials.value.email.value, password: credentials.value.password.value });
-    //useRoute().meta.
+      await auth.register({ email: credentials.value.email.value, password: credentials.value.password.value });
+    else await auth.login({ email: credentials.value.email.value, password: credentials.value.password.value });
     return navigateTo("/");
   }
 };
@@ -84,8 +84,8 @@ const authenticateUser = async () => {
   <div>
     <div class="wrapper">
       <div class="container">
-        <h1>Welcome</h1>
-        <form class="form" @submit.prevent>
+        <h1 :class="{ moveDown: submited }">Welcome</h1>
+        <form class="form" :class="{ hide: submited }" @submit.prevent>
           <div v-for="(credential, key) in credentials">
             <input
               v-if="!credential.regOnly || newUser"
@@ -108,49 +108,94 @@ const authenticateUser = async () => {
   </div>
 </template>
 
-<style>
+<style scoped>
 @import url(https://fonts.googleapis.com/css?family=Source+Sans+Pro:200,300);
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-  font-weight: 300;
-}
-body {
-  font-family: "Source Sans Pro", sans-serif;
-  color: white;
-  font-weight: 300;
-}
-body ::-webkit-input-placeholder {
+::-webkit-input-placeholder {
   /* WebKit browsers */
   font-family: "Source Sans Pro", sans-serif;
   color: white;
   font-weight: 300;
 }
-body :-moz-placeholder {
+:-moz-placeholder {
   /* Mozilla Firefox 4 to 18 */
   font-family: "Source Sans Pro", sans-serif;
   color: white;
   opacity: 1;
   font-weight: 300;
 }
-body ::-moz-placeholder {
+::-moz-placeholder {
   /* Mozilla Firefox 19+ */
   font-family: "Source Sans Pro", sans-serif;
   color: white;
   opacity: 1;
   font-weight: 300;
 }
-body :-ms-input-placeholder {
+:-ms-input-placeholder {
   /* Internet Explorer 10+ */
   font-family: "Source Sans Pro", sans-serif;
   color: white;
   font-weight: 300;
 }
-.wrapper {
-  /*font-family: "Source Sans Pro", sans-serif;
+/*::placeholde {
   color: white;
-  font-weight: 300;*/
+  font-family: "Source Sans Pro", sans-serif;
+  font-weight: 300;
+}*/
+@keyframes fadeOut {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@-moz-keyframes fadeOut {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@-webkit-keyframes fadeOut {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@-o-keyframes fadeOut {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@-ms-keyframes fadeOut {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+.hide {
+  animation: fadeOut ease 0.5s;
+  -webkit-animation: fadeOut ease 0.5s;
+  -moz-animation: fadeOut ease 0.5s;
+  -o-animation: fadeOut ease 0.5s;
+  -ms-animation: fadeOut ease 0.5s;
+  animation-fill-mode: forwards;
+  /*visibility: hidden;*/
+  /*opacity: 0;
+  transition: visibility 0s 2s, opacity 2s linear;*/
+}
+.wrapper {
+  font-family: "Source Sans Pro", sans-serif;
+  color: white;
+  font-weight: 300;
   background: #50a3a2;
   background: linear-gradient(to top left, #50a3a2 0%, #53e3a6 100%);
   background: linear-gradient(to bottom right, #50a3a2 0%, #53e3a6 100%);
@@ -163,7 +208,7 @@ body :-ms-input-placeholder {
   justify-content: center;
   overflow: hidden;
 }
-.wrapper.form-success .container h1 {
+.moveDown {
   transform: translateY(85px);
 }
 .container {

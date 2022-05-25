@@ -1,2 +1,2 @@
-export { userStore } from "./user"; //, userCredentials, userState
+export { authStore } from "./auth"; //, userCredentials, userState
 export { todoStore } from "./todo";

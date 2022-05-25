@@ -1,69 +1,64 @@
 <script setup lang="ts">
-import { storeToRefs } from "pinia";
-
-definePageMeta({
-  middleware: ["auth"],
-});
+const auth = authStore();
 
 const todo = todoStore();
+todo.dbListen(); // start listening to the database
+
+const sortedTodos = ref(todo.getOrderedByStatusTodoList());
+
+todo.$subscribe(() => {
+  // update sorted list when todoStore state updates
+  getSortedTodoList();
+});
 
 const newitem = ref("");
 
-//const prov = { todoList: todo.todoList };
+const sortBy = ref("date");
 
-//const todos = todo.getOrderedByStatusTodoList();
-
-//const todoList = ref(todoStore().getOrderedByStatusTodoList());
-
-//const todoList = storeToRefs(todo.getOrderedByStatusTodoList());
-//const todoList = ref(todos.map((todo) => todo));
-
-const sortBy = ref("status");
-
-const markAsDoneOrUndone = (id: number) => {
+const markAsDoneOrUndone = (id: string) => {
   todo.changeTodoStatus(id);
-  //updateTodoList();
 };
 
-const deleteItemFromList = (id: number) => {
+const deleteItemFromList = (id: string) => {
   todo.deleteTodo(id);
-  //updateTodoList();
-};
-
-const changeSortingOption = (option: string) => {
-  sortBy.value = option;
-  //updateTodoList();
 };
 
 const addNewTodo = () => {
   todo.addTodo(newitem.value);
-  //todoList.value = todo.getOrderedByStatusTodoList();
 };
 
-const updateTodoList = async () => {
-  /*if (sortBy.value === "status") todoList.value = todo.getOrderedByStatusTodoList();
-  else if (sortBy.value === "date") todoList.value = todo.getOrderedByDateTodoList();
-  else todoList.value = todo.getTodoList();*/
-  if (sortBy.value === "status") todo.getOrderedByStatusTodoList();
-  else if (sortBy.value === "date") todo.getOrderedByDateTodoList();
-  else todo.getTodoList();
+const getSortedTodoList = async (by?: string) => {
+  if (by) sortBy.value = by;
+  if (sortBy.value === "status") sortedTodos.value = todo.getOrderedByStatusTodoList();
+  else if (sortBy.value === "date") sortedTodos.value = todo.getOrderedByDateTodoList();
+  else sortedTodos.value = todo.getOrderedByStatusTodoList();
+};
+
+const logout = async () => {
+  await auth.logout();
+  return navigateTo("/auth");
 };
 </script>
 
 <template>
   <div id="todolist">
-    <h1>
-      Todo List
+    <div class="header">
+      <div class="flex justify-between">
+        <h1>Todo List</h1>
+        <button class="btn-picto" type="button" aria-label="Logout" title="Logout" @click="logout">
+          <i aria-hidden="true" class="material-icons">logout</i>
+        </button>
+      </div>
       <span>Get things done, one item at a time.</span>
-    </h1>
+    </div>
 
-    <div v-if="todo.getOrderedByStatusTodoList.length === 0">
+    <div v-if="todo.todos.length !== 0">
       <transition-group name="todolist" tag="ul">
-        <li v-for="item in todo" v-bind:class="item.done ? 'done' : ''" v-bind:key="item.id">
+        <li v-for="item in sortedTodos" v-bind:class="item.done ? 'done' : ''" v-bind:key="item.id">
           <span class="label">{{ item.label }}</span>
-          <div class="actions">
+          <div class="actions flex items-center">
             <button
-              class="btn-picto"
+              class="btn-picto flex items-center flex-center"
               type="button"
               v-on:click="markAsDoneOrUndone(item.id)"
               v-bind:aria-label="item.done ? 'Undone' : 'Done'"
@@ -72,7 +67,7 @@ const updateTodoList = async () => {
               <i aria-hidden="true" class="material-icons">{{ item.done ? "check_box" : "check_box_outline_blank" }}</i>
             </button>
             <button
-              class="btn-picto"
+              class="btn-picto flex items-center flex-center"
               type="button"
               v-on:click="deleteItemFromList(item.id)"
               aria-label="Delete"
@@ -83,19 +78,28 @@ const updateTodoList = async () => {
           </div>
         </li>
       </transition-group>
-      <togglebutton label="Move done items at the end?" name="todosort" v-on:clicked="changeSortingOption('status')" />
+      <div class="flex items-center justify-end gap-3 mt-4">
+        <p>Move done items at the end?</p>
+        <ToggleButton
+          class="ml-0"
+          :checked="sortBy === 'status'"
+          @click="getSortedTodoList(sortBy === 'status' ? 'date' : 'status')"
+        />
+      </div>
     </div>
     <p v-else class="emptylist">Your todo list is empty.</p>
 
     <form name="newform" @submit.prevent>
       <label for="newitem">Add to the todo list</label>
-      <input type="text" name="newitem" id="newitem" v-model="newitem" />
-      <button type="submit" @click="addNewTodo">Add item</button>
+      <div class="flex w-full">
+        <input type="text" name="newitem" id="newitem" v-model="newitem" />
+        <button type="submit" @click="addNewTodo">Add item</button>
+      </div>
     </form>
   </div>
 </template>
 <style scoped>
-* {
+/** {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
@@ -106,7 +110,7 @@ body {
   font-size: 1.1rem;
   font-family: "Quicksand", sans-serif;
   height: 100%;
-}
+}*/
 @keyframes strikeitem {
   to {
     width: calc(100% + 1rem);
@@ -121,12 +125,15 @@ body {
   color: #fff;
   box-shadow: -20px -20px 0px 0px rgba(100, 100, 100, 0.1);
 }
+#todolist .header {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+}
 #todolist h1 {
   /*text-align:center;*/
   font-weight: normal;
   font-size: 2.6rem;
   letter-spacing: 0.05em;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+  /*border-bottom: 1px solid rgba(255, 255, 255, 0.3);*/
 }
 #todolist h1 span {
   display: block;
@@ -204,6 +211,7 @@ form input {
   flex-grow: 1;
   border: none;
   background: #f7f1f1;
+  color: #000;
   padding: 0 1.5em;
   font-size: initial;
 }
@@ -228,53 +236,27 @@ form button {
   height: 3rem;
 }
 
-/* TOOGLE COMPONENT */
-.togglebutton-wrapper {
-  margin-top: 1em;
+/* fallback */
+@font-face {
+  font-family: "Material Icons";
+  font-style: normal;
+  font-weight: 400;
+  src: url(https://fonts.gstatic.com/s/materialicons/v128/flUhRq6tzZclQEJ-Vdg-IuiaDsNc.woff2) format("woff2");
 }
-.togglebutton-wrapper label {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-}
-.togglebutton-wrapper input {
-  position: absolute;
-  left: -9999px;
-}
-.togglebutton-wrapper .togglebutton-label {
-  font-size: 0.8rem;
-  letter-spacing: 0.1em;
-}
-.togglebutton-wrapper .tooglebutton-box {
-  position: relative;
-  display: block;
-  margin-left: 0.6em;
-  width: 38px;
-  height: 22px;
-  background: white;
-  /*border:1px solid black;*/
-  border-radius: 999px;
-  cursor: pointer;
-}
-.togglebutton-wrapper .tooglebutton-box:before {
-  content: "";
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  display: block;
-  width: 18px;
-  height: 18px;
-  /*border:1px solid #FF6666;*/
-  border-radius: 50%;
-  background: #ff6666;
-  opacity: 0.7;
-  transition: all 0.2s ease-in-out;
-}
-.togglebutton-wrapper.togglebutton-focus .tooglebutton-box {
-  box-shadow: 0px 0px 0px 3px rgba(0, 0, 0, 0.1);
-}
-.togglebutton-wrapper.togglebutton-checked .tooglebutton-box:before {
-  left: calc(100% - 4px - 16px);
-  opacity: 1;
+
+.material-icons {
+  font-family: "Material Icons";
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-feature-settings: "liga";
+  -webkit-font-smoothing: antialiased;
 }
 </style>
